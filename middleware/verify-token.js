@@ -4,12 +4,20 @@ const JWT_SECRET = process.env.JWT_SECRET;
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   if (!authHeader) return res.status(401).json({ err: 'Authorization header missing.' });
+
   const token = authHeader.split(' ')[1];
   if (!token) return res.status(401).json({ err: 'Unauthorized.' });
 
   jwt.verify(token, JWT_SECRET, (err, payload) => {
     if (err) return res.status(401).json({ err: 'Invalid token.' });
-    req.user = payload;
+
+
+    req.user = {
+      id: payload.id,
+      role: payload.role,
+      username: payload.username
+    };
+
     next();
   });
 }

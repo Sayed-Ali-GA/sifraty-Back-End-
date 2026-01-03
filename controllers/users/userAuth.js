@@ -3,11 +3,11 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const router = express.Router();
 
-const User = require("../models/userModel");
+const User = require("../../models/userModel");
 const saltRounds = 12;
 
 // ==================== Sign-Up ====================
-const pool = require('../config/db'); // PostgreSQL pool
+const pool = require('../../config/db'); // PostgreSQL pool
 
 router.post('/sign-up', async (req, res) => {
   try {
