@@ -3,6 +3,8 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const router = express.Router();
 const pool = require('../../config/db');
+const { authenticateToken } = require("../../middleware/verify-token");
+
 
 const saltRounds = 12;
 
@@ -50,6 +52,36 @@ router.post('/sign-up-airlines', async (req, res) => {
     res.status(400).json({ err: 'Invalid, please try again.' });
   }
 });
+  
+// ================================================ Update Airline Profile ==============================================================
+router.put('/airlines/profile', authenticateToken, async (req, res) => {
+  try {
+    const airlineId = req.user.id; 
+    const { name, email, phone, license, logo } = req.body;
+
+    const updated = await pool.query(
+      `UPDATE airlines
+       SET name = $1,
+           email = $2,
+           phone = $3,
+           license = $4,
+           logo = $5
+       WHERE id = $6
+       RETURNING id, name, email, phone, license, logo, employee_username`,
+      [name, email, phone, license, logo, airlineId]
+    );
+
+    if (updated.rows.length === 0) {
+      return res.status(404).json({ err: 'Airline not found' });
+    }
+
+    res.status(200).json(updated.rows[0]);
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ err: err.message });
+  }
+});
+
 
 // ==================================================== Sign-In for Airlines ==========================================================
 router.post('/sign-in-airlines', async (req, res) => {

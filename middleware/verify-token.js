@@ -15,7 +15,7 @@ function authenticateToken(req, res, next) {
     req.user = {
       id: payload.id,
       role: payload.role,
-      username: payload.username
+      username: payload.employee_username
     };
 
     next();
