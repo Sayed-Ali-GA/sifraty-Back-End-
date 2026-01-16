@@ -11,11 +11,11 @@ function authenticateToken(req, res, next) {
   jwt.verify(token, JWT_SECRET, (err, payload) => {
     if (err) return res.status(401).json({ err: 'Invalid token.' });
 
-
+ 
     req.user = {
-      id: payload.id,
-      role: payload.role,
-      username: payload.employee_username
+      id: payload.id || payload._id,
+      role: payload.role || 'user',
+      username: payload.username || payload.company_name || payload.employee_username
     };
 
     next();

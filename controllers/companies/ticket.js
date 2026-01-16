@@ -25,6 +25,28 @@ const checkFlightOwnership = async (req, res, next) => {
   }
 };
 
+// ======================================================= Public Route ======================================================================
+//                          GET all flights for all users 
+
+router.get("/", async (req, res) => {
+  try {
+    const result = await pool.query(`
+  SELECT f.id, f.from_city, f.to_city, f.departure_time, f.arrival_time,
+         f.price, f.flight_number, f.baggage, f.wifi,
+         a.name AS airline_name
+  FROM flights f
+  JOIN airlines a ON f.airline_id = a.id
+  ORDER BY f.departure_time ASC
+`);
+
+    res.status(200).json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+
 // =================================================== Public Routes ===============================================================
 // GET flights for logged-in airline only
 router.get("/my-flights", verifyToken, async (req, res) => {
@@ -128,6 +150,33 @@ router.put("/:flightId", verifyToken, checkFlightOwnership, async (req, res) => 
     res.status(500).json({ error: true, message: err.message });
   }
 });
+
+// GET flight by ID for public users
+router.get("/:flightId", async (req, res) => {
+  try {
+    const { flightId } = req.params;
+
+    const result = await pool.query(
+      `SELECT f.id, f.from_city, f.to_city, f.departure_time, f.arrival_time,
+              f.price, f.flight_number, f.baggage, f.wifi,
+              a.name AS airline_name
+       FROM flights f
+       JOIN airlines a ON f.airline_id = a.id
+       WHERE f.id = $1`,
+      [flightId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: true, message: "Flight not found" });
+    }
+
+    res.status(200).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: true, message: err.message });
+  }
+});
+
 
 // delete flight
 router.delete("/:flightId", verifyToken, checkFlightOwnership, async (req, res) => {

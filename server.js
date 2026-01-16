@@ -12,6 +12,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+
+app.use((req, res, next) => {
+  res.on("finish", () => {
+    console.log(`${req.method} ${req.originalUrl} → ${res.statusCode}`);
+  });
+  next();
+});
+
 // routes
 app.use('/api/auth', userAuthRoutes);
 app.use('/api/users', usersRoutes);
