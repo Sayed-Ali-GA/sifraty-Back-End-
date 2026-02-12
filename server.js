@@ -7,6 +7,7 @@ const userAuthRoutes = require('./controllers/users/userAuth');
 const usersRoutes = require('./controllers/users/users');
 const companyies = require('./controllers/companies/companyAuth');
 const flightsRouter = require('./controllers/companies/ticket')
+const userBookings = require('./controllers/users/userBooking')
 
 const app = express();
 app.use(cors());
@@ -25,6 +26,8 @@ app.use('/api/auth', userAuthRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/companyies', companyies);
 app.use('/api/flights', flightsRouter);
+app.use('/api/bookings', userBookings);
+
 // app.use('/api/auth/companyies', companyAuth);
 
 const PORT = process.env.PORT || 3000;
