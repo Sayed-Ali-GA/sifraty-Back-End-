@@ -2,14 +2,29 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const router = express.Router();
+const upload  = require("../../config/multer")
+const cloudinary = require("../../config/cloudinary")
+const { authenticateToken } = require("../../middleware/verify-token");
 const pool = require("../../config/db");
 
 const saltRounds = 12;
 
 // ==================== Sign-Up ====================
-router.post("/sign-up-user", async (req, res) => {
+router.post("/sign-up-user", upload.single("photo"), async (req, res) => {
   try {
-    const { username, password, role = "user" } = req.body;
+    const { username, password, email } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ err: "Username and password are required." });
+    }
+
+  
+    let photoUrl = null;
+    let photoPublicId = null;
+    if (req.file) {
+      photoUrl = req.file.path;       
+      photoPublicId = req.file.filename;
+    }
 
     const exists = await pool.query(
       "SELECT id FROM users WHERE username=$1",
@@ -23,10 +38,10 @@ router.post("/sign-up-user", async (req, res) => {
     const hashedPassword = bcrypt.hashSync(password, saltRounds);
 
     const result = await pool.query(
-      `INSERT INTO users (username, hashed_password, role)
-       VALUES ($1, $2, $3)
-       RETURNING id, username, role`,
-      [username, hashedPassword, role]
+      `INSERT INTO users (username, hashed_password, email, photo, photo_public_id, role)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, username, role, photo`,
+      [username, hashedPassword, email, photoUrl, photoPublicId, "user"]
     );
 
     const user = result.rows[0];
@@ -37,9 +52,10 @@ router.post("/sign-up-user", async (req, res) => {
       { expiresIn: "7d" }
     );
 
-    res.status(201).json({ token });
+    res.status(201).json({ success: true, token });
   } catch (err) {
-    res.status(400).json({ err: err.message });
+    console.error(err);
+    res.status(400).json({ success: false, message: err.message });
   }
 });
 
@@ -88,6 +104,56 @@ router.put("/profile",  async (req, res) => {
     res.status(500).json({ err: err.message });
   }
 });
+
+
+router.put("/profile-photo", authenticateToken, upload.single("photo"),async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ err: "No file uploaded" });
+      }
+
+
+      const updated = await pool.query(
+        `UPDATE users
+         SET photo=$1, photo_public_id=$2
+         WHERE id=$3
+         RETURNING id, username, photo`,
+        [req.file.path, req.file.filename, req.user.id]
+      );
+
+      res.json(updated.rows[0]);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ err: "Upload failed" });
+    }
+  }
+);
+
+router.delete("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const user = await pool.query(
+      "SELECT photo_public_id FROM users WHERE id = $1",
+     [id]
+  );
+    const publicId = user.rows[0].photo_public_id;
+
+
+
+    if (publicId) {
+      await cloudinary.uploader.destroy(publicId);
+    }
+
+    await pool.query("DELETE FROM users WHERE id = $1", [id]);
+
+    res.json({ message: "Deleted successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Delete failed" });
+  }
+});
+
 
 
 module.exports = router;
