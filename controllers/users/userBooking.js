@@ -45,8 +45,6 @@ router.post("/:flightId", verifyToken, async (req, res) => {
 
 
 
-
-
 router.get("/my-bookings", verifyToken, async (req, res) => {
   try {
     if (req.user.role !== "user") {
