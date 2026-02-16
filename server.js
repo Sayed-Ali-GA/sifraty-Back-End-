@@ -8,6 +8,7 @@ const usersRoutes = require('./controllers/users/users');
 const companyies = require('./controllers/companies/companyAuth');
 const flightsRouter = require('./controllers/companies/ticket')
 const userBookings = require('./controllers/users/userBooking')
+const bookinged = require('./controllers/companies/Booking')
 
 const app = express();
 app.use(cors());
@@ -27,6 +28,7 @@ app.use('/api/users', usersRoutes);
 app.use('/api/companyies', companyies);
 app.use('/api/flights', flightsRouter);
 app.use('/api/bookings', userBookings);
+app.use('/api/company', bookinged)
 
 // app.use('/api/auth/companyies', companyAuth);
 
