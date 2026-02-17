@@ -2,6 +2,8 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const router = express.Router();
+const upload  = require("../../config/multer")
+const cloudinary = require("../../config/cloudinary")
 const pool = require('../../config/db');
 const { authenticateToken } = require("../../middleware/verify-token");
 
@@ -9,15 +11,17 @@ const { authenticateToken } = require("../../middleware/verify-token");
 const saltRounds = 12;
 
 // ================================================= Sign-Up for Airlines ======================================================
-router.post('/sign-up-airlines', async (req, res) => {
+router.post('/sign-up-airlines', upload.single("logo"), async (req, res) => {
   try {
-    const { name, logo, email, phone, license, employee_username, password } = req.body;
+    const { name, email, phone, license, employee_username, password } = req.body;
+    const logo = req.file ? req.file.path : null;
 
- 
+
     const existing = await pool.query(
       'SELECT * FROM airlines WHERE employee_username = $1',
       [employee_username]
     );
+
     if (existing.rows.length > 0)
       return res.status(409).json({ err: 'Employee username already exists.' });
 
@@ -31,7 +35,6 @@ router.post('/sign-up-airlines', async (req, res) => {
     );
 
     const airline = newAirline.rows[0];
-
 
     const payload = {
       id: airline.id,
@@ -47,33 +50,30 @@ router.post('/sign-up-airlines', async (req, res) => {
     const token = jwt.sign(payload, process.env.JWT_SECRET);
 
     res.status(201).json({ token });
+
   } catch (err) {
     console.log(err);
     res.status(400).json({ err: 'Invalid, please try again.' });
   }
 });
+
   
 // ================================================ Update Airline Profile ==============================================================
-router.put('/airlines/profile', authenticateToken, async (req, res) => {
+router.put('/airlines/profile', authenticateToken, upload.single('logo'), async (req, res) => {
   try {
     const airlineId = req.user.id; 
-    const { name, email, phone, license, logo } = req.body;
+    const { name, email, phone, license } = req.body;
+    const logo = req.file ? `/uploads/${req.file.filename}` : req.body.logo;
+
+    if (!name) return res.status(400).json({ err: "Name is required" });
 
     const updated = await pool.query(
       `UPDATE airlines
-       SET name = $1,
-           email = $2,
-           phone = $3,
-           license = $4,
-           logo = $5
-       WHERE id = $6
+       SET name=$1, email=$2, phone=$3, license=$4, logo=$5
+       WHERE id=$6
        RETURNING id, name, email, phone, license, logo, employee_username`,
       [name, email, phone, license, logo, airlineId]
     );
-
-    if (updated.rows.length === 0) {
-      return res.status(404).json({ err: 'Airline not found' });
-    }
 
     res.status(200).json(updated.rows[0]);
   } catch (err) {
