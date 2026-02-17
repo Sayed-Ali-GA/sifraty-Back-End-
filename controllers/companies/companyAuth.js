@@ -2,20 +2,31 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const router = express.Router();
-const upload  = require("../../config/multer")
-const cloudinary = require("../../config/cloudinary")
+const upload  = require("../../config/multer");
+const cloudinary = require("../../config/cloudinary");
 const pool = require('../../config/db');
 const { authenticateToken } = require("../../middleware/verify-token");
-
 
 const saltRounds = 12;
 
 // ================================================= Sign-Up for Airlines ======================================================
 router.post('/sign-up-airlines', upload.single("logo"), async (req, res) => {
   try {
-    const { name, email, phone, license, employee_username, password } = req.body;
-    const logo = req.file ? req.file.path : null;
+    const { 
+          name, 
+          email, 
+          phone, 
+          license, 
+          employee_username, 
+          password 
+          } = req.body;
+          
+    let logo = null;
 
+    if (req.file) {
+      const result = await cloudinary.uploader.upload(req.file.path);
+      logo = result.secure_url;
+    }
 
     const existing = await pool.query(
       'SELECT * FROM airlines WHERE employee_username = $1',
@@ -47,7 +58,7 @@ router.post('/sign-up-airlines', upload.single("logo"), async (req, res) => {
       role: 'airline'
     };
 
-    const token = jwt.sign(payload, process.env.JWT_SECRET);
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
 
     res.status(201).json({ token });
 
@@ -57,15 +68,21 @@ router.post('/sign-up-airlines', upload.single("logo"), async (req, res) => {
   }
 });
 
-  
 // ================================================ Update Airline Profile ==============================================================
 router.put('/airlines/profile', authenticateToken, upload.single('logo'), async (req, res) => {
   try {
     const airlineId = req.user.id; 
     const { name, email, phone, license } = req.body;
-    const logo = req.file ? `/uploads/${req.file.filename}` : req.body.logo;
+    let logo = req.body.logo; 
 
-    if (!name) return res.status(400).json({ err: "Name is required" });
+    if (req.file) {
+      const result = await cloudinary.uploader.upload(req.file.path);
+      logo = result.secure_url;
+    }
+
+    // Validation
+    if (!name || !name.trim()) return res.status(400).json({ err: "Name is required" });
+    if (email && !/\S+@\S+\.\S+/.test(email)) return res.status(400).json({ err: "Invalid email" });
 
     const updated = await pool.query(
       `UPDATE airlines
@@ -75,13 +92,28 @@ router.put('/airlines/profile', authenticateToken, upload.single('logo'), async 
       [name, email, phone, license, logo, airlineId]
     );
 
-    res.status(200).json(updated.rows[0]);
+    if (updated.rows.length === 0) return res.status(404).json({ err: "Airline not found" });
+
+    const airline = updated.rows[0];
+    const payload = {
+      id: airline.id,
+      employee_username: airline.employee_username,
+      name: airline.name,
+      email: airline.email,
+      phone: airline.phone,
+      license: airline.license,
+      logo: airline.logo,
+      role: 'airline'
+    };
+
+    const newToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+    res.status(200).json({ ...airline, token: newToken });
   } catch (err) {
     console.log(err);
     res.status(500).json({ err: err.message });
   }
 });
-
 
 // ==================================================== Sign-In for Airlines ==========================================================
 router.post('/sign-in-airlines', async (req, res) => {
@@ -102,7 +134,6 @@ router.post('/sign-in-airlines', async (req, res) => {
     if (!isPasswordCorrect)
       return res.status(401).json({ err: 'Invalid credentials.' });
 
-
     const payload = {
       id: airline.id,
       employee_username: airline.employee_username,
@@ -114,7 +145,7 @@ router.post('/sign-in-airlines', async (req, res) => {
       role: 'airline'
     };
 
-    const token = jwt.sign(payload, process.env.JWT_SECRET);
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
 
     res.status(200).json({ token });
   } catch (err) {
