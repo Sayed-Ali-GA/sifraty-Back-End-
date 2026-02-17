@@ -53,7 +53,8 @@ router.get("/", async (req, res) => {
         f.baggage,
         f.wifi,
         f.seats_available,
-        a.name AS airline_name
+        a.name AS airline_name,
+        a.logo AS airline_logo
       FROM flights f
       JOIN airlines a ON f.airline_id = a.id
       ORDER BY f.departure_time ASC
@@ -65,6 +66,7 @@ router.get("/", async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+
 
 // =========================================== AIRLINE ROUTES =======================================================
 
